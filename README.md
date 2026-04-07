@@ -2,6 +2,9 @@
 
 A Gradio-powered web app that generates synthetic industry datasets and provisions them directly into a **Microsoft Fabric** workspace (creates a Lakehouse + uploads CSV files).
 
+<img width="2560" height="1765" alt="image" src="https://github.com/user-attachments/assets/9c13ec81-034c-464f-b9d5-4bf0e877cb65" />
+
+
 ## Supported Industries
 
 | Industry | Fact Table | Key Dimensions |

@@ -1,5 +1,4 @@
 # 🏭 Microsoft Fabric — Data Demo Generator
-> Produced by Claudio Mirti
 
 A Gradio-powered web app that generates synthetic industry datasets and provisions them directly into a **Microsoft Fabric** workspace (creates a Lakehouse + uploads CSV files).
 

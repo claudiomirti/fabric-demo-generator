@@ -1,5 +1,5 @@
 """
-Produced by Claudio Mirti
+by Claudio Mirti
 
 Microsoft Fabric Data Demo Generator
 Gradio UI entry point.

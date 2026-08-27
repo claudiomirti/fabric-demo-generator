@@ -7,7 +7,7 @@ Gradio UI entry point.
 import gradio as gr
 
 from src.auth import get_access_token, reset_credential
-from src.orchestrator import provision, validate_workspace_id
+from src.orchestrator import MODE_CSV, MODE_FULL, provision, validate_workspace_id
 from src.semantic_model import render_schema_text, SEMANTIC_MODELS
 
 INDUSTRIES = list(SEMANTIC_MODELS.keys())
@@ -20,6 +20,28 @@ INDUSTRY_ICONS = {
 }
 INDUSTRY_LABELS = [INDUSTRY_ICONS[i] for i in INDUSTRIES]
 LABEL_TO_INDUSTRY = {v: k for k, v in INDUSTRY_ICONS.items()}
+
+
+MODE_CSV_LABEL = "📄 CSV files only"
+MODE_FULL_LABEL = "🚀 Full provisioning — Delta tables + semantic model + ontology"
+MODE_LABELS = {MODE_CSV_LABEL: MODE_CSV, MODE_FULL_LABEL: MODE_FULL}
+
+# Shown under the mode selector so the choice is made with its consequences visible.
+MODE_HELP = {
+    MODE_CSV_LABEL: (
+        "Creates the Lakehouse and uploads the generated data as **CSV files** to "
+        "the Files section. Quickest option, and leaves the modelling to you."
+    ),
+    MODE_FULL_LABEL: (
+        "Everything above, and then: converts each CSV into a **Delta table**, "
+        "creates a **Direct Lake semantic model** with business descriptions on "
+        "every table, column, and measure so a **Fabric data agent** can answer "
+        "questions in plain language, and creates an **Ontology** describing the "
+        "same domain as entities and relationships.\n\n"
+        "_Takes a few minutes longer. Ontologies are a preview feature and need a "
+        "supported Fabric capacity._"
+    ),
+}
 
 
 def check_auth() -> tuple[str, str]:
@@ -51,10 +73,15 @@ def on_validate_workspace(workspace_id: str) -> str:
     return msg
 
 
-def on_provision(label: str, workspace_id: str, row_count: int):
+def on_mode_change(label: str) -> str:
+    return MODE_HELP.get(label, "")
+
+
+def on_provision(label: str, workspace_id: str, row_count: int, mode_label: str):
     industry = LABEL_TO_INDUSTRY.get(label, label)
+    mode = MODE_LABELS.get(mode_label, MODE_CSV)
     log_lines = []
-    for line in provision(industry, workspace_id, int(row_count)):
+    for line in provision(industry, workspace_id, int(row_count), mode):
         log_lines.append(line)
         yield "\n".join(log_lines)
 
@@ -140,13 +167,23 @@ with gr.Blocks(title="Fabric Data Demo Generator") as app:
             outputs=schema_preview,
         )
 
-    # ── Step 4: Provision ─────────────────────────────────────────────────────
-    with gr.Accordion("🚀 Step 4 — Provision to Fabric", open=True):
+    # ── Step 4: Output mode ───────────────────────────────────────────────────
+    with gr.Accordion("🎯 Step 4 — Choose What to Create", open=True):
+        mode_radio = gr.Radio(
+            choices=[MODE_CSV_LABEL, MODE_FULL_LABEL],
+            value=MODE_CSV_LABEL,
+            label="Output mode",
+            interactive=True,
+        )
+        mode_help = gr.Markdown(MODE_HELP[MODE_CSV_LABEL])
+        mode_radio.change(on_mode_change, inputs=mode_radio, outputs=mode_help)
+
+    # ── Step 5: Provision ─────────────────────────────────────────────────────
+    with gr.Accordion("🚀 Step 5 — Provision to Fabric", open=True):
         gr.Markdown(
-            "This will:\n"
-            "1. **Create a Lakehouse** in your workspace\n"
-            "2. **Upload synthetic CSV files** to the Lakehouse Files section\n"
-            "3. Show you **next steps** to load them as Delta tables and build a semantic model"
+            "Runs the provisioning selected in Step 4 and streams the log below. "
+            "Re-running for the same industry reuses the Lakehouse and replaces "
+            "the semantic model and ontology, so it is safe to run more than once."
         )
         provision_btn = gr.Button("🚀 Start Provisioning", variant="primary", size="lg")
         log_output = gr.Textbox(
@@ -159,7 +196,7 @@ with gr.Blocks(title="Fabric Data Demo Generator") as app:
 
         provision_btn.click(
             on_provision,
-            inputs=[industry_radio, workspace_input, row_slider],
+            inputs=[industry_radio, workspace_input, row_slider, mode_radio],
             outputs=log_output,
         )
 
@@ -174,6 +211,9 @@ with gr.Blocks(title="Fabric Data Demo Generator") as app:
         to ask your Fabric Copilot or data agent once the dataset is live.
 
         🔒 This app does **not** store any credentials or data beyond your session.
+
+        ---
+        <div style="text-align:center; opacity:0.75;">Made by <b>Claudio Mirti</b></div>
         """
     )
 
